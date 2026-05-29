@@ -10,3 +10,11 @@
 # 克隆仓库
 git clone https://github.com/ng204/StructGroup.git
 cd StructGroup
+## 2. 数据准备
+dataset/
+└── panax_data/
+    ├── Area_1/
+    │   
+    ├── Area_2/
+    │  
+    └── ...
