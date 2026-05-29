@@ -1,23 +1,23 @@
-## 1. 环境配置
+## 1. Environment Setup
 
-### 1.1 基础环境要求
+### 1.1 Basic Environment Requirements
 - Python >= 3.8
 - PyTorch >= 1.10
-- CUDA >= 11.1 (推荐使用GPU加速)
-- 操作系统: Linux / Windows / macOS
+- CUDA >= 11.1 (GPU acceleration is recommended)
+- Operating System: Linux / Windows / macOS
 
-### 1.2 安装依赖
+### 1.2 Install Dependencies
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/ng204/StructGroup.git
 cd StructGroup
 
-**注意**: 如果你的CUDA版本与默认PyTorch版本不兼容，请先从[PyTorch官网](https://pytorch.org/)安装对应版本的PyTorch。
+**Note**: If your CUDA version is incompatible with the default PyTorch version, please install the corresponding PyTorch version from the [PyTorch Official Website](https://pytorch.org/) first.
 
-## 2. 数据集准备
+## 2. Dataset Preparation
 
-### 2.1 数据集结构
-请将数据集按照以下目录结构组织：
+### 2.1 Dataset Structure
+Please organize the dataset according to the following directory structure:
 ```
 StructGroup/
 └── dataset/
@@ -29,43 +29,41 @@ StructGroup/
             └── ...
 ```
 
-### 2.2 数据集获取
-本研究使用的三七植物点云数据集较大，未上传至GitHub。如需获取完整数据集，请通过下方邮箱联系作者。
+### 2.2 Dataset Access
+The Panax notoginseng plant point cloud dataset used in this study is large and has not been uploaded to GitHub. If you need the complete dataset, please contact the author via the email address provided below.
 
-## 3. 预训练模型权重
+## 3. Pre-trained Model Weights
 
-### 3.1 权重文件说明
-- **文件格式**: PyTorch (.pth)
-- **训练环境**: PyTorch 2.0 + CUDA 11.7
-- **模型性能**: 在三七植物点云测试集上达到[XX.X%]的精度
+### 3.1 Weight File Description
+- **File Format**: PyTorch (.pth)
+- **Training Environment**: PyTorch 2.0 + CUDA 11.7
+- **Model Performance**: Achieves [XX.X%] accuracy on the Panax notoginseng point cloud test set
 
-### 3.2 权重获取
-由于模型权重文件较大，已上传至百度网盘：
-> 百度网盘链接: [通过网盘分享的文件：work_dirs
-链接: https://pan.baidu.com/s/10-bgNOQ3pt305gOA4eXBwg?pwd=gsdu 提取码: gsdu 
---来自百度网盘超级会员v5的分享]
-> 提取码: [gsdu]
+### 3.2 Weight Download
+Due to the large size of the model weight file, it has been uploaded to Baidu Netdisk:
+> Baidu Netdisk Link: [https://pan.baidu.com/s/10-bgNOQ3pt305gOA4eXBwg?pwd=gsdu]
+> Extraction Code: [gsdu]
 
-下载完成后，请将权重文件放置在项目根目录下。
+After downloading, please place the weight file in the root directory of the project.
 
-## 4. 模型测试（复现论文结果）
+## 4. Model Testing (Reproduce Paper Results)
 
-**运行以下命令加载预训练权重并测试模型**：
+**Run the following command to load the pre-trained weights and test the model**:
 ```bash
 python test.py
 ```
 
-### 4.1 测试说明
-- 脚本会自动加载项目根目录下的预训练权重文件
-- 自动读取`./dataset/Panax/Panax_data/`目录下的测试数据
-- 无需重新训练，直接运行即可得到与论文一致的结果
-- 测试结果将输出到终端，并自动保存到`./results/`目录下
+### 4.1 Testing Instructions
+- The script will automatically load the pre-trained weight file from the project root directory
+- Automatically read test data from the `./dataset/Panax/Panax_data/` directory
+- No retraining is required; running directly will produce results consistent with the paper
+- Test results will be output to the terminal and automatically saved to the `./results/` directory
 
-### 4.2 预期输出
+### 4.2 Expected Output
 ```
 Loading model weights...
 Model loaded successfully.
-Testing on Panax point cloud test set...
+Testing on Panax notoginseng point cloud test set...
 Test Accuracy: XX.X%
 Test Precision: XX.X%
 Test Recall: XX.X%
@@ -73,31 +71,30 @@ Test F1-Score: XX.X%
 Results saved to ./results/test_results.txt
 ```
 
-## 5. 模型训练
+## 5. Model Training
 
-如需重新训练模型，直接运行：
+If you need to retrain the model, run directly:
 ```bash
 python train.py
 ```
 
-### 5.1 训练配置
-- 所有训练参数均在`configs/StructGroup/default.yaml`文件中配置
-- 可根据硬件条件调整batch_size、learning_rate等参数
-- 训练过程中会自动保存checkpoint到`./checkpoints/`目录
-- 训练日志会保存到`./logs/`目录
+### 5.1 Training Configuration
+- All training parameters are configured in the `configs/StructGroup/default.yaml` file
+- You can adjust parameters such as batch_size and learning_rate according to your hardware conditions
+- Checkpoints will be automatically saved to the `./checkpoints/` directory during training
+- Training logs will be saved to the `./logs/` directory
 
-### 5.2 训练结果
-- 训练完成后，最优模型权重会保存为`./checkpoints/best_model.pth`
-- 可使用该权重文件替换下载的预训练权重进行测试
+### 5.2 Training Results
+- After training is completed, the optimal model weights will be saved as `./checkpoints/best_model.pth`
+- You can use this new weight file to replace the downloaded pre-trained weights for testing
 
+## 6. Contact Information
 
-
-## 6. 联系方式
-
-如有任何问题或需要获取完整数据集，请通过以下方式联系：
-- 邮箱: [yangling@kust.edu.cn]
+If you have any questions or need to obtain the complete dataset, please contact us via:
+- GitHub Issues: https://github.com/ng204/StructGroup/issues
+- Email: [yangling@kust.edu.cn]
 
 ---
 
-**注意**: 本代码和数据集仅用于学术研究目的。
+**Note**: This code and dataset are for academic research purposes only.
 ```
