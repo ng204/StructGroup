@@ -90,53 +90,11 @@ python train.py
 - 训练完成后，最优模型权重会保存为`./checkpoints/best_model.pth`
 - 可使用该权重文件替换下载的预训练权重进行测试
 
-## 6. 项目结构
-```
-StructGroup/
-├── README.md              # 本说明文件
-├── requirements.txt       # Python依赖列表
-├── train.py               # 训练脚本
-├── test.py                # 测试脚本
-├── configs/               # 配置文件目录
-│   └── StructGroup/
-│       └── default.yaml   # 默认训练配置
-├── tools/                 # 工具函数目录
-│   ├── dataset.py         # 数据集加载
-│   ├── model.py           # 模型定义
-│   ├── utils.py           # 通用工具函数
-│   └── ...
-├── dataset/               # 数据集目录（需自行创建并放置数据）
-│   └── Panax/
-│       └── Panax_data/
-│           ├── Area_1/
-│           └── ...
-├── checkpoints/           # 训练checkpoint保存目录（自动创建）
-├── logs/                  # 训练日志保存目录（自动创建）
-└── results/               # 测试结果保存目录（自动创建）
-```
 
-## 7. 常见问题
 
-### Q1: 运行test.py时提示"FileNotFoundError: No such file or directory"
-A: 请确认已从百度网盘下载预训练权重文件并放在项目根目录下，同时确认数据集已按照要求的目录结构放置。
-
-### Q2: 运行时出现CUDA out of memory错误
-A: 可在`configs/StructGroup/default.yaml`文件中减小`batch_size`参数，或使用CPU进行测试（速度会较慢）。
-
-### Q3: 测试结果与论文中的结果有微小差异
-A: 这可能是由于不同的硬件环境、PyTorch版本或随机种子导致的正常波动。代码中已固定所有随机种子，以确保最大程度的可复现性。
-
-## 8. 引用
-
-如果你在研究中使用了本代码，请引用我们的论文：
-```
-[在此填写你的论文引用信息]
-```
-
-## 9. 联系方式
+## 6. 联系方式
 
 如有任何问题或需要获取完整数据集，请通过以下方式联系：
-- GitHub Issues: https://github.com/ng204/StructGroup/issues
 - 邮箱: [yangling@kust.edu.cn]
 
 ---
