@@ -1,0 +1,241 @@
+model:
+  channels: 32
+  num_blocks: 7
+  semantic_classes: 3  # stem(0), leaf(1), branch(2)
+  instance_classes: 3  # stem, leaf, branch
+  sem2ins_classes: []  # 空！强制使用实例分割网络，不直接用语义结果
+  semantic_only: False  # 必须为False以启用实例分割
+  semantic_weight: [7.0, 5.0, 3.0]  # stem:7（从4.0提高到7.0，恢复stem语义分割质量，提升stem AP）, leaf:5, branch:3
+  ignore_label: -100
+  grouping_cfg:
+    # 类别自适应聚类参数 - 每个类别使用不同的radius和npoint_thr
+    # ============ 配套优化：收紧 grouping 参数，减少过并/外溢 ============
+    # 由于触达召回已经足够高，采用"以少量触达换取更高IoU"的策略
+    score_thr: 0.0025  # 保持较低阈值，确保触达召回
+    radius: 0.01           # 默认半径（后备值）
+    class_specific_radius: [0.02, 0.011, 0.016]  # leaf从0.018降到0.011，减少相邻叶片过度连通
+    mean_active: 1600  # 保持较高值，确保连接范围
+    class_numpoint_mean: [-1, -1, -1]
+    npoint_thr: 5          # 默认点数阈值（后备值）
+    class_npoint_thr: [50, 9, 12]  # leaf从2提高到9，减少小噪声块被并入实例
+    ignore_classes: []
+    
+    # ============ 消融实验开关 ============
+    # Proposal置信度细化（暂时关闭，效果不稳定）
+    use_proposal_refiner: False
+    
+    # 边界注意力模块（用于导出 boundary_scores，可在推理阶段开启）
+    use_boundary_attention: True
+    boundary_attention_cfg:
+      # 多尺度KNN的k列表，训练期先用单尺度/双尺度以节省时间
+      k_list: [16]           # 可改为 [8, 16] 做消融
+      # 几何采样点数上限（训练/测试）
+      max_geo_points_train: 2048
+      max_geo_points_eval: 20000
+      # 用于几何传播的粗 voxel 尺度（真实世界单位）
+      geo_voxel_size: 0.05
+    
+    # 参数预测网络
+    use_param_predictor: False
+    
+    # Offset方向一致性loss（关闭，避免过度约束offset学习，提升AP）
+    use_offset_direction_loss: False  # 关闭，避免训练过于平稳导致AP下降
+    offset_direction_loss_weight: 0.08  # 已关闭，此参数不再生效
+    
+    # 实例级自适应模块（需要配合instance_adaptive.py）
+    use_instance_adaptive: True
+    instance_adaptive_cfg:
+      score_scale: 0.2
+      reliability_floor: 0.2
+    
+    # 连接处感知注意力模块（包含KNN+PCA，较慢，先关闭验证baseline速度）
+    use_junction_attention: True
+    junction_weight: 3.0           # 连接处offset加权
+    junction_direction_weight: 0.5 # 方向一致性权重
+    junction_reg_weight: 0.1       # 与语义歧义对齐的正则化权重
+    
+  instance_voxel_cfg:
+    scale: 70  # 从60提高到70，提高branch mask精细度（最有效）
+    spatial_shape: 20
+  train_cfg:
+    max_proposal_num: 1500  # 大幅增加（从1200到1500），生成更多proposal以提高leaf召回
+    pos_iou_thr: 0.52  # 从0.5提高到0.52，让模型更关注高IoU样本，提升高IoU阈值下的AP
+    # ============ 基于IoU的mask loss权重（提升高IoU样本的边界精度）============
+    use_iou_weighted_mask_loss: true  # 启用基于IoU的mask loss权重
+    iou_weight_power: 2.0  # IoU权重幂次，从1.5提高到2.0（更强调高IoU样本的边界精度，提升高IoU阈值下的AP）
+    # ============ 边界感知Mask Loss（仅对leaf类别应用，提升高IoU下的边界精度）============
+    use_boundary_aware_mask_loss: true  # 启用边界感知mask loss（仅对leaf类别）
+    boundary_mask_weight: 2.0  # 边界点权重（从2.5降低到2.0，避免过度关注边界导致训练不稳定）
+    high_iou_boundary_weight: 1.3  # 高IoU样本的边界点额外权重（从1.5降低到1.3，避免权重叠加过大）
+    boundary_detection_threshold: 0.25  # 边界检测阈值（从0.3降低到0.25，更准确识别边界点）
+    # ============ 按类别分流的核心机制（新增，但训练阶段禁用CPU-heavy操作） ============
+    # 注意：以下功能包含大量CPU操作（cdist, cKDTree, Python循环等），会严重拖慢训练
+    # 训练阶段：这些功能被禁用，使用纯GPU操作（质心offset、简单截断等）
+    # 验证/推理阶段：这些功能会启用，提升最终性能
+    
+    # 1. 按类别中心定义（训练阶段禁用medoid以加速，推理时启用）
+    use_category_aware_centers: true  # 启用按类别中心计算
+    enable_medoid_in_training: false  # 训练阶段完全禁用medoid计算（加速训练，推理时仍可使用medoid）
+    robust_center_method: 'medoid'  # leaf/branch使用medoid作为鲁棒中心（推理时使用）
+    stem_num_anchors: null  # stem锚点数量（推理时使用）
+    
+    # 2. 按类别约束loss（训练时低频启用，GPU加速版本）
+    use_category_aware_constraints: true  # 启用约束loss
+    constraint_loss_freq: 8  # 每8个batch计算一次约束loss（从4提高到8，减少50%计算量，加速训练）
+    separation_min_distance: 0.02  # 实例间最小间隔
+    separation_margin: 0.01  # 惩罚margin
+    separation_loss_weight: 0.1  # 分离性约束loss权重
+    separation_max_instances: 32  # 每个batch最多参与约束的实例数量（GPU加速优化）
+    continuity_knn: 16  # kNN的k值
+    continuity_smooth_weight: 1.0  # 平滑权重
+    continuity_loss_weight: 0.1  # 连续性约束loss权重
+    continuity_max_points: 2048  # 最多参与计算的点数（GPU加速优化）
+    direction_consistency_loss_weight: 0.05  # 方向一致性loss权重
+    
+    # 3. 按类别保底的proposal保留（训练时禁用，推理时启用）
+    use_category_quota: true  # 配置标志（训练时不会实际使用）
+    category_quota:  # 每个类别的proposal配额（推理时使用）
+      stem: 300
+      leaf: 800
+      branch: 400
+    category_quota_threshold: 1000  # 推理时使用
+    # 注意：虽然诊断显示强召回只有53.03%，但这是proposal质量的问题，不是匹配阈值的问题
+    # 我们需要提升mask预测质量，而不是降低匹配阈值（已经很低了，leaf_pos_iou_thr=0.25）
+    # ============ 关键优化：最大化leaf召回率，确保每个GT至少有一个proposal匹配 ============
+    match_low_quality: True      # 启用低质量匹配，确保每个GT至少有一个proposal
+    min_pos_thr: 0.18            # 大幅降低（从0.22到0.18），匹配更多leaf proposal，提升召回
+    # ============ Leaf类别特定的匹配阈值（大幅降低，最大化召回）============
+    leaf_pos_iou_thr: 0.25       # leaf类别的pos_iou_thr（从0.32大幅降低到0.25），匹配更多leaf proposal，最大化召回
+    # 新增loss权重（针对leaf召回和branch mask精细度优化）
+    reliability_weight: 0.2       # reliability_loss权重（从0.18提高到0.2，提升proposal可靠性）
+    junction_weight: 0.18         # junction_loss权重（从0.16提高到0.18，提升边界处mask质量）
+    mask_soft_dice_weight: 0.65    # mask_soft_dice_loss权重（从0.6提高到0.65，进一步提升mask质量，关注高IoU精度）
+    mask_soft_tau: 0.04           # Soft Dice温度系数（从0.03提高到0.04，避免mask过于sharp导致边界过度修剪）
+    mask_thr_weight: 0.05         # mask_thr_reg_loss权重（原0.1）
+    prior_reg_weight: 1e-4        # prior_logits正则化权重
+    # ============ 防止后期过拟合的loss权重调整 ============
+    mask_loss_weight: 1.0        # mask_loss基础权重（保持1.0，但通过类别权重调整）
+    iou_score_loss_weight: 1.0   # iou_score_loss基础权重（保持1.0，但通过类别权重调整）
+    # ============ Leaf类别特定训练权重（重点提升mask质量，提升proposal质量）============
+    leaf_cls_weight: 1.5         # leaf类别cls_loss权重倍数（保持1.5，提升分类准确度）
+    leaf_mask_weight: 1.8        # leaf类别mask_loss权重倍数（从1.65提高到1.8，进一步提升leaf边界精度，提升高IoU下的AP）
+    leaf_iou_weight: 1.5         # leaf类别iou_score_loss权重倍数（从1.4提高到1.5，提升IoU预测）
+    leaf_reliability_weight: 1.4 # leaf类别reliability_loss权重倍数（从1.3提高到1.4，提升可靠性）
+    # ============ Mask Quality分支（质量分支）============
+    # 预测proposal与匹配GT的mask IoU，用于重排序，提升高IoU下的AP
+    quality_loss_weight: 0.12    # 质量分支loss权重（从0.15降低到0.12，避免过度依赖质量分支，提升训练稳定性）
+    leaf_quality_weight: 1.5     # leaf类别质量loss权重倍数（默认1.5，对leaf给予更高权重）
+    # 注意：offset_loss没有单独的类别权重，但通过提高语义权重和grouping参数来间接提升
+    # ============ Branch类别特定训练权重（恢复权重，提升训练强度）============
+    branch_cls_weight: 1.5      # branch类别cls_loss权重倍数（从1.3恢复到1.5，提升训练强度）
+    branch_mask_weight: 1.5     # branch类别mask_loss权重倍数（从1.3恢复到1.5，提升mask边界精度）
+    branch_iou_weight: 1.5      # branch类别iou_score_loss权重倍数（从1.3恢复到1.5，提升IoU预测精度）
+  test_cfg:
+    x4_split: False
+    cls_score_thr: 0.0001  # 极低，保留叶柄
+    mask_score_thr: -1.0    # 极低
+    min_npoint: 1           # 进一步降低（从2到1），允许极小叶片
+    # ============ Top-K 过滤：确保每个类别保留足够的实例数量 ============
+    # 先使用阈值过滤去除噪声，再使用top-K确保每个类别有足够的实例
+    # 格式：[stem_k, leaf_k, branch_k] 或单个整数（所有类别相同）
+    top_k_per_class: [200, 500, 200]  # stem:200, leaf:500, branch:200（leaf设置更大以确保召回）
+    # ============ Leaf类别特定优化（推理时score重标定）============
+    # 只对leaf类别使用新公式：score_leaf = score_leaf * sigmoid(iou_pred)^α * reliability^β
+    # 这样可以更好地排序高质量候选，提高高IoU下的AP（不改mask也能涨AP）
+    leaf_iou_alpha: 0.6      # 进一步降低（从0.7到0.6），减少iou对score的抑制
+    leaf_reliability_beta: 1.2  # 进一步降低（从1.3到1.2），减少reliability对score的抑制
+    leaf_reliability_floor: 0.4  # 进一步提高（从0.3到0.4），更不抑制低reliability
+    leaf_cls_score_thr: 0.000001  # 进一步降低（从0.00001到0.000001），几乎不过滤leaf实例
+    # ============ Mask Quality分支（质量分支，对所有类别使用）============
+    # 使用质量分支预测的mask IoU进行重排序：score = cls_score × q^α
+    # 预期提升高IoU下的AP，同时保持训练稳定性
+    leaf_quality_alpha: 2.2   # leaf类别质量分支的幂次（从2.5降低到2.2，避免过度激进，保持稳定性）
+    stem_quality_alpha: 1.5   # stem类别质量分支的幂次（从2.0降低到1.5，与branch保持一致，stem和branch形状相似）
+    branch_quality_alpha: 1.5  # branch类别质量分支的幂次（从2.0降低到1.5，避免质量分支误判导致AP下降）
+    # ============ Leaf 兜底实例：在 semantic_pred==leaf 且未被实例覆盖的区域，再做一次小半径聚类 ============
+    use_leaf_fallback: true          # 启用 leaf 兜底分支
+    leaf_fallback_radius: 0.012      # 体素半径（从0.010提高到0.012），增大聚类范围，提升召回
+    leaf_fallback_min_points: 200    # 一个簇至少多少点（从300降低到200），允许更小的叶片，提升召回
+    leaf_fallback_score: 0.05        # 兜底实例的基础score（较低，不干扰高分实例）
+    # ============ 连通性约束的实例后处理：Keep-largest 策略 ============
+    # 对 leaf：Keep-largest 策略（消除多岛并集）
+    # 对 stem/branch：跳过后处理，直接保留原始结果（branch和stem都是圆柱形，后处理会误杀端点）
+    use_connectivity_postprocess: true  # 启用连通性后处理（默认开启）
+    keep_largest_classes: [2]        # 只对 leaf 使用 Keep-largest：leaf=2（1-based），branch像stem一样跳过后处理
+    connectivity_radius_ratio: 0.6     # 连通半径 = leaf grouping 半径 * 0.6（默认 0.011 * 0.6 = 0.0066）
+    # connectivity_radius: 0.007       # 也可以直接指定连通半径（优先级高于 ratio）
+    min_points_after_split: 1          # 拆分后保留的最小点数（默认与 min_npoint 相同）
+    # ============ 收缩式修剪后处理：去除远端拖尾点 ============
+    # 禁用shrink_trim：最佳训练（AP=0.687）没有shrink_trim，当前训练（AP=0.631）有shrink_trim
+    # Shrink_trim会错误截断leaf边界点，导致高IoU阈值下精度下降
+    # 禁用后预期提升0.05-0.06 AP，达到0.68-0.70
+    use_shrink_trim: false             # 禁用收缩式修剪（最重要：避免边界被错误截断）
+    shrink_trim_classes: []        # 禁用所有类别的shrink_trim
+    shrink_trim_use_medoid: true      # 使用 medoid（更稳健）还是质心作为中心
+    shrink_trim_method: 'percentile'   # 截断方法：'percentile' 或 'mad'
+    shrink_trim_percentile: 97.0      # 如果使用 percentile，截断的百分位数（从95.0提高到97.0，保留更多边界点，避免过度修剪导致高IoU下降）
+    shrink_trim_mad_multiplier: 3.0    # 如果使用 mad，中位数+几倍MAD（默认3.0）
+    min_points_after_trim: 1          # 修剪后保留的最小点数（默认与 min_npoint 相同）
+    eval_tasks: ['semantic', 'instance']
+    fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
+
+data:
+  train:
+    type: 'Panax' 
+    data_root: '/home/ng204/xueshuang/StructGroup/dataset/Panax/preprocess'
+    prefix: ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5',
+             'Area_6', 'Area_7', 'Area_8', 'Area_9', 'Area_10',
+             'Area_11', 'Area_12', 'Area_13', 'Area_14', 'Area_15',
+             'Area_16', 'Area_17', 'Area_18', 'Area_19', 'Area_20',
+             'Area_21', 'Area_22', 'Area_23', 'Area_24', 'Area_25',
+             'Area_26', 'Area_27', 'Area_28', 'Area_29', 'Area_30',
+             'Area_31', 'Area_32', 'Area_33', 'Area_34', 'Area_35',
+             'Area_36', 'Area_37', 'Area_38', 'Area_39', 'Area_40',
+             'Area_41', 'Area_42', 'Area_43', 'Area_44', 'Area_45',
+             ]  # 45个区域训练（与backbone保持一致，总共50个区域）
+    suffix: '_inst_nostuff.pth'
+    repeat: 3
+    training: True
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 50000     # 进一步增加点云数量（从40000到50000），提高计算量和GPU利用率
+      min_npoint: 100
+    x4_split: False
+  test:
+    type: 'Panax'
+    data_root: '/home/ng204/xueshuang/StructGroup/dataset/Panax/preprocess'
+    prefix: [
+             'Area_46', 'Area_47', 'Area_48', 'Area_49', 'Area_50'
+             ]  # 5个区域验证
+    suffix: '_inst_nostuff.pth'
+    training: False
+    voxel_cfg:
+      scale: 60
+      spatial_shape: [128, 512]
+      max_npoint: 50000
+      min_npoint: 100
+    x4_split: False
+
+dataloader:
+  train:
+    batch_size: 12          # 单GPU使用12，如果使用多GPU，建议每个GPU的batch_size为12（总batch_size=12*GPU数）
+    num_workers: 8          # 增加数据加载线程（从4到8），减少数据加载瓶颈
+    prefetch_factor: 4     # 增加预取（从2到4），减少GPU等待时间
+    persistent_workers: True  # 保持worker进程存活，避免重复创建开销
+  test:
+    batch_size: 1
+    num_workers: 4          # 测试时也增加workers
+
+optimizer:
+  type: 'Adam'
+  lr: 0.003  # 降低初始学习率（从0.004到0.003），减缓过拟合，提高训练稳定性
+  weight_decay: 1e-4  # 添加权重衰减，防止过拟合
+
+fp16: false  # 启用混合精度训练，加速训练并减少显存占用
+epochs: 100
+step_epoch: 0
+save_freq: 50         # 每50轮才保存checkpoint，减少磁盘占用
+pretrain: '/StructGroup/work_dirs/StructGroup_Panax_backbone_fold5/latest.pth'
+work_dir: '/StructGroup/work_dirs/StructGroup_Panax_fold5'
+

@@ -1,0 +1,84 @@
+model:
+  channels: 32
+  num_blocks: 7
+  semantic_classes: 3  # stem(0), leaf(1), branch(2)
+  instance_classes: 3  # stem, leaf, branch
+  sem2ins_classes: []  # 空！强制使用实例分割网络
+  semantic_only: True  # backbone阶段只训练语义分割
+  semantic_weight: [10.0, 1.0, 3.0]  # stem:10, leaf:1, branch:3
+  ignore_label: -100
+  grouping_cfg:
+    # backbone训练时的聚类参数（不会使用，但需要定义）
+    score_thr: 0.05
+    radius: 0.03
+    mean_active: 300
+    class_numpoint_mean: [-1, -1, -1]  # 3个类别
+    npoint_thr: 50
+    ignore_classes: []  # 不忽略任何类别
+  instance_voxel_cfg:
+    scale: 50
+    spatial_shape: 20
+  train_cfg:
+    max_proposal_num: 200
+    pos_iou_thr: 0.5
+  test_cfg:
+    x4_split: False
+    cls_score_thr: 0.05
+    mask_score_thr: -0.5
+    min_npoint: 50
+    eval_tasks: ['semantic']  # backbone只评估语义分割
+    fixed_modules: []  # backbone训练时不冻结任何模块
+
+data:
+  train:
+    type: 'Panax'
+    data_root: '/home/ng204/xueshuang/StructGroup/dataset/Panax/preprocess'
+    prefix: ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5',
+             'Area_6', 'Area_7', 'Area_8', 'Area_9', 'Area_10',
+             'Area_11', 'Area_12', 'Area_13', 'Area_14', 'Area_15',
+             'Area_16', 'Area_17', 'Area_18', 'Area_19', 'Area_20',
+             'Area_21', 'Area_22', 'Area_23', 'Area_24', 'Area_25',
+             'Area_26', 'Area_27', 'Area_28', 'Area_29', 'Area_30',
+             'Area_31', 'Area_32', 'Area_33', 'Area_34', 'Area_35',
+             'Area_36', 'Area_37', 'Area_38', 'Area_39', 'Area_40'
+             ]  # 40个区域训练（总共50个区域，做5折比例划分）
+    suffix: '_inst_nostuff.pth'
+    repeat: 4  # 减少重复次数，因为数据量大了
+    training: True
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 50000  # 大幅降低避免truncate
+      min_npoint: 100  # 大幅降低避免empty batch
+  test:
+    type: 'Panax'
+    data_root: '/home/ng204/xueshuang/StructGroup/dataset/Panax/preprocess'
+    prefix: ['Area_41', 'Area_42', 'Area_43', 'Area_44', 'Area_45',
+             'Area_46', 'Area_47', 'Area_48', 'Area_49', 'Area_50'
+             ]  # 10个区域验证
+    suffix: '_inst_nostuff.pth'
+    training: False
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 50000  # 大幅降低避免truncate
+      min_npoint: 100  # 大幅降低避免empty batch
+
+dataloader:
+  train:
+    batch_size: 4  # 增加到4，这样truncate后仍然>=2
+    num_workers: 1
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'Adam' 
+  lr: 0.004
+
+fp16: False
+epochs: 100  # 增加epochs，因为数据更多样化
+step_epoch: 0
+save_freq: 50  # 减少保存频率，节省空间
+pretrain: '/StructGroup/hais_ckpt_spconv2.pth"'
+work_dir: '/StructGroup/work_dirs/StructGroup_Panax_backbone_fold5'
