@@ -1,15 +1,3 @@
-```markdown
-# StructGroup: 三七植物点云分割模型复现指南
-
-本仓库包含论文《[在此填写你的论文标题]》中提出的StructGroup模型的完整实现代码、配置文件和训练脚本。所有实验结果均可通过本仓库的代码和说明完全复现。
-
-## 快速开始
-
-**直接运行以下命令即可开始训练模型**：
-```bash
-python train.py
-```
-
 ## 1. 环境配置
 
 ### 1.1 基础环境要求
@@ -23,10 +11,6 @@ python train.py
 # 克隆仓库
 git clone https://github.com/ng204/StructGroup.git
 cd StructGroup
-
-# 安装Python依赖
-pip install -r requirements.txt
-```
 
 **注意**: 如果你的CUDA版本与默认PyTorch版本不兼容，请先从[PyTorch官网](https://pytorch.org/)安装对应版本的PyTorch。
 
@@ -57,8 +41,10 @@ StructGroup/
 
 ### 3.2 权重获取
 由于模型权重文件较大，已上传至百度网盘：
-> 百度网盘链接: [在此填写你的百度网盘链接]
-> 提取码: [在此填写提取码]
+> 百度网盘链接: [通过网盘分享的文件：work_dirs
+链接: https://pan.baidu.com/s/10-bgNOQ3pt305gOA4eXBwg?pwd=gsdu 提取码: gsdu 
+--来自百度网盘超级会员v5的分享]
+> 提取码: [gsdu]
 
 下载完成后，请将权重文件放置在项目根目录下。
 
@@ -151,7 +137,7 @@ A: 这可能是由于不同的硬件环境、PyTorch版本或随机种子导致�
 
 如有任何问题或需要获取完整数据集，请通过以下方式联系：
 - GitHub Issues: https://github.com/ng204/StructGroup/issues
-- 邮箱: [在此填写你的邮箱地址]
+- 邮箱: [yangling@kust.edu.cn]
 
 ---
 
